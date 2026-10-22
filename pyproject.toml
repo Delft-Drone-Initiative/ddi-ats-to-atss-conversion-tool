@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Stichting Delft Drones Initiative
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[project]
+name = "ats2atss"
+version = "0.1.0"
+description = "Turn Metronix `.ats` recordings into `.atss` files, using nothing but Python."
+readme = "README.md"
+authors = [
+    { name = "Geronimo Tjon-A-Meeuw", email= "geronimo@delftdrones.eu" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.5.4",
+]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+
+[project.urls]
+repository = "https://github.com/Delft-Drone-Initiative/ddi-ats-to-atss-conversion-tool"
+
+[project.scripts]
+ats2atss = "ats2atss:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "reuse>=6.2.0",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
