@@ -13,6 +13,7 @@ authors = [
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.5.4",
+    "pandas>=3.1.0",
 ]
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
@@ -35,7 +36,7 @@ dev = [
 ]
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP"]
