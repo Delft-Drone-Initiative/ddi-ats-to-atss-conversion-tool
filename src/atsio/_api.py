@@ -240,7 +240,7 @@ def read_calibration(ats_path: str | Path, hdr: AtsHeader | None = None) -> Cali
     return calibration_for_header(cals, hdr)
 
 
-def convert_atss_to_frames(ats_file: Path, savedir: Path, mmap: bool = True):
+def _convert_atss_to_frames(ats_file: Path, savedir: Path, mmap: bool = True):
     """
     Read ONE .atss channel. `path` may point at the .atss, the .json, or the base name.
     Returns pandas dataFrame(data, meta): data is a float64 numpy array, meta merges the filename tags
@@ -249,7 +249,7 @@ def convert_atss_to_frames(ats_file: Path, savedir: Path, mmap: bool = True):
     ...
 
 
-def convert_measurement_to_frames(folder_path: Path, savedir: Path, mmap: bool = True):
+def _convert_measurement_to_frames(folder_path: Path, savedir: Path, mmap: bool = True):
     """
     Convert one measurement folder to dataFrames. `path` may point at the .atss, the .json, or the base name.
     Returns (data, meta): data is a float64 numpy array, meta merges the filename tags
@@ -258,7 +258,7 @@ def convert_measurement_to_frames(folder_path: Path, savedir: Path, mmap: bool =
     ...
 
 
-def convert_survey_to_frames(folder_path: Path, savedir: Path, mmap: bool = True):
+def _convert_survey_to_frames(folder_path: Path, savedir: Path, mmap: bool = True):
     """
     Convert one entire survey to dataFrames. `path` may point at the .atss, the .json, or the base name.
     Returns (data, meta): data is a float64 numpy array, meta merges the filename tags
@@ -272,9 +272,6 @@ __all__ = [
     "convert_ats_file",
     "read_ats_header",
     "read_calibration",
-    "convert_atss_to_frames",
     "convert_ats_file",
-    "convert_measurement_to_frames",
-    "convert_survey_to_atss",
-    "convert_survey_to_frames",
+    "convert_survey_to_atss"
 ]
