@@ -5,7 +5,6 @@ from pathlib import Path
 
 from ._calibration import (
     _cached_xml,
-    calibration_for_ats,
     calibration_for_header,
     normalize_sensor_name,
     read_ats_header,
@@ -28,8 +27,6 @@ from ._helper_utilities import (
 from ._metadata import AtsHeader, AtssMeta, Calibration, ConversionResult, DirResult, SurveyResult
 
 log = logging.getLogger(__name__)
-
-
 
 
 def convert_ats_file(
@@ -65,7 +62,7 @@ def convert_ats_file(
 
     # 3. calibration: matched on the header's sensor + serial + chopper
     if calibration:
-        cal = calibration_for_ats(ats_path, replace(hdr, channel_type=ct))
+        cal = read_calibration(ats_path, replace(hdr, channel_type=ct))
     else:
         cal = Calibration(
             normalize_sensor_name(hdr.sensor_type), hdr.sensor_serial_number, hdr.chopper
@@ -273,5 +270,5 @@ __all__ = [
     "read_ats_header",
     "read_calibration",
     "convert_ats_file",
-    "convert_survey_to_atss"
+    "convert_survey_to_atss",
 ]

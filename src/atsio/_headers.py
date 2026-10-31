@@ -10,11 +10,8 @@ Fields are declared in byte order. Do NOT reorder, insert or remove fields.
 
 from __future__ import annotations
 
-import dataclasses
-import json
 import struct
-from dataclasses import astuple, fields
-from pathlib import Path
+from dataclasses import fields
 
 from ._errors import AtsFormatError
 from ._metadata import AtsHeader
@@ -41,26 +38,3 @@ def header_from_bytes(raw: bytes) -> AtsHeader:
             value = value.split(b"\x00", 1)[0].decode("utf-8", "replace").strip()
         values.append(value)
     return AtsHeader(*values)
-
-
-def header_to_bytes(hdr: AtsHeader) -> bytes:
-    """Encode back to 1024 bytes (strings NUL-padded), e.g. for writing test files."""
-    values = [v.encode("utf-8") if isinstance(v, str) else v for v in astuple(hdr)]
-    return struct.pack(_FMT, *values)
-
-def header_to_dict(hdr: AtsHeader) -> dict:
-    """All fields, with float32 fields shown at their real precision (7 significant digits)."""
-    codes = dict(ATS_HEADER_FIELDS)
-    return {k: (float(f"{v:.7g}") if codes[k] == "f" else v)
-            for k, v in dataclasses.asdict(hdr).items()}
-
-
-def header_from_dict(d: dict) -> AtsHeader:
-    """Inverse of header_to_dict; unknown keys are ignored, missing keys raise."""
-    names = {f.name for f in dataclasses.fields(AtsHeader)}
-    return AtsHeader(**{k: v for k, v in d.items() if k in names})
-
-
-def write_header_json(hdr: AtsHeader, path: str | Path) -> None:
-    Path(path).write_text(json.dumps(header_to_dict(hdr), indent=2, ensure_ascii=False),
-                          encoding="utf-8")

@@ -5,11 +5,8 @@ from importlib.metadata import version
 
 from ._api import (
     convert_ats_file,
-    convert_atss_to_frames,
     convert_dir_to_atss,
-    convert_measurement_to_frames,
     convert_survey_to_atss,
-    convert_survey_to_frames,
     read_ats_header,
     read_calibration,
 )
@@ -24,10 +21,7 @@ __all__ = [
     "convert_ats_file",
     "read_ats_header",
     "read_calibration",
-    "convert_atss_to_frames",
     "convert_survey_to_atss",
-    "convert_measurement_to_frames",
-    "convert_survey_to_frames",
     "ConversionResult",
     "SurveyResult",
     "DirResult",

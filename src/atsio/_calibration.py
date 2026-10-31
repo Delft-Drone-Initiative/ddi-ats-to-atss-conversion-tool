@@ -1,16 +1,6 @@
+# SPDX-FileCopyrightText: 2026 Stichting Delft Drones Initiative
+#
 # SPDX-License-Identifier: Apache-2.0
-"""Sensor calibration from a Metronix measurement XML (measdoc).
-
-Mirrors MTHotel's ``read_cal::read_std_xml`` + ``ats2atss::convert_header``:
-
-* every ``calibration_sensors/channel`` yields one entry per chopper table
-  ("on" / "off"); rows without a `chopper` attribute count as "off";
-* tables are only accepted in the old mtx units  f [Hz], a [V/(nT*Hz)], p [deg]
-  and converted to the JSON units  a [mV/nT] = c2 * f * 1000;
-* the table for an .ats file is picked by sensor + serial + chopper taken from
-  the **ATS header**, not by XML channel id;
-* sensors without data (electrodes) still give an entry with empty f/a/p.
-"""
 
 from __future__ import annotations
 
@@ -43,7 +33,6 @@ _DUP_TOLERANCE = 0.01  # MTHotel: duplicates within 1 % are dropped, otherwise a
 _SENSOR_RE = re.compile(r"^(MFS|FGS|SHFT|SHF|EFP)-?0*(\d+)([a-z]*)$", re.IGNORECASE)
 
 
-# copied from MTHotel cpp/data/info.db, table sensor_aliases (lower-case key -> official name)
 SENSOR_ALIASES = {
     "mfs05": "MFS-05",
     "mfs-05": "MFS-05",
@@ -100,7 +89,7 @@ SENSOR_ALIASES = {
     "efp07": "EFP-07",
     "efp-07": "EFP-07",
     "efp07e": "EFP-07e",
-    "efp-07e": "EFP-07e",  # MTHotel maps efp07e to "EFP07e" (typo)
+    "efp-07e": "EFP-07e",
     "mtc50h": "MTC-50H",
     "mtc-50h": "MTC-50H",
     "mtc80h": "MTC-80H",
@@ -300,27 +289,3 @@ def calibration_for_header(
     return select_calibration(list(cals), hdr.sensor_type, serial, hdr.chopper)
 
 
-def calibration_for_ats(ats_path: str | Path, hdr: AtsHeader | None = None) -> Calibration:
-    """Everything automatic: header -> XML -> matching table.
-
-    Pass ``hdr`` if you already read the header, to avoid reading it twice.
-    Returns an empty calibration (sensor + serial, no f/a/p) when there is no XML.
-    """
-    if hdr is None:
-        hdr = read_ats_header(ats_path)
-    xml = xml_path_for(ats_path, hdr)
-    if xml is None:
-        log.warning("%s: no measdoc XML found, no calibration attached", Path(ats_path).name)
-        return Calibration(
-            normalize_sensor_name(hdr.sensor_type), hdr.sensor_serial_number, hdr.chopper
-        )
-    try:
-        cals = _cached_xml(xml.resolve())
-    except (CalibrationError, ET.ParseError) as e:
-        log.error(
-            "%s: unusable XML %s (%s), no calibration attached", Path(ats_path).name, xml.name, e
-        )
-        return Calibration(
-            normalize_sensor_name(hdr.sensor_type), hdr.sensor_serial_number, hdr.chopper
-        )
-    return calibration_for_header(cals, hdr)

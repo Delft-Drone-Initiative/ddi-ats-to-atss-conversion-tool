@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 MIN_CAL_SIZE = 6  # MTHotel mt_base.hpp: fewer points are not interpolated
 
 UNKNOWN_DATETIME = "1970-01-01T00:00:00"
