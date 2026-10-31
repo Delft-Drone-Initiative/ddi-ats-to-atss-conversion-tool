@@ -34,12 +34,6 @@ Requirements: Python => 3.11
     uv run pytest tests/test_api.py --data /path/to/recording -v
 This will run the pre-defined tests with your own data. 
 
-## How to use it (CLI)
-Command: 
-
-    atsio path/to/ats_files path/to/output
-
-
 ## Contributing
 Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and
 our [Code of Conduct](CODE_OF_CONDUCT.md).
