@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [project]
-name = "ats2atss"
+name = "atsio"
 version = "0.1.0"
 description = "Turn Metronix `.ats` recordings into `.atss` files, using nothing but Python."
 readme = "README.md"
@@ -22,7 +22,7 @@ license-files = ["LICENSE", "NOTICE"]
 repository = "https://github.com/Delft-Drone-Initiative/ddi-ats-to-atss-conversion-tool"
 
 [project.scripts]
-ats2atss = "ats2atss:main"
+atsio = "atsio:main"
 
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]

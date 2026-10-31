@@ -8,15 +8,15 @@ from ._api import (
     convert_atss_to_frames,
     convert_dir_to_atss,
     convert_measurement_to_frames,
-    convert_survey,
+    convert_survey_to_atss,
     convert_survey_to_frames,
     read_ats_header,
-    read_atss,
-    read_atss_info,
     read_calibration,
 )
+from ._errors import Ats2AtssError
+from ._metadata import ConversionResult, DirResult, SurveyResult
 
-__version__ = version("ats2atss")
+__version__ = version("atsio")
 
 
 __all__ = [
@@ -25,11 +25,13 @@ __all__ = [
     "read_ats_header",
     "read_calibration",
     "convert_atss_to_frames",
-    "convert_survey",
+    "convert_survey_to_atss",
     "convert_measurement_to_frames",
     "convert_survey_to_frames",
-    "read_atss",
-    "read_atss_info",
+    "ConversionResult",
+    "SurveyResult",
+    "DirResult",
+    "Ats2AtssError"
 ]
 
 

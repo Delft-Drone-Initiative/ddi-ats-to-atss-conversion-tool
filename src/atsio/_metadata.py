@@ -1,11 +1,13 @@
-from dataclasses import astuple, dataclass, field, fields
-from datetime import datetime, timezone
-
 import math
-from ._errors import AtsFormatError
-import numpy as np
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+MIN_CAL_SIZE = 6  # MTHotel mt_base.hpp: fewer points are not interpolated
 
 UNKNOWN_DATETIME = "1970-01-01T00:00:00"
+
 
 def _f(code: str, offset: int):
     """A header field: its struct code and byte offset (the offset is documentation + test)."""
@@ -141,63 +143,6 @@ class AtsHeader:
         return 0.0 if d < 0.001 else d
 
 
-@dataclass
-class ADUFFTdata:
-    hx: np.ndarray | None = None
-    hy: np.ndarray | None = None
-    hz: np.ndarray | None = None
-    nperseg: int = 1024
-    nyquist: float | None = None
-    fs: float | None = None
-    cal_hx: np.ndarray | None = None
-    cal_hy: np.ndarray | None = None
-    cal_hz: np.ndarray | None = None
-    fmin: int | float | None = None
-    fmax: int | float | None = None
-
-
-@dataclass
-class AtssMeta:
-    # --- identity (from the filename tags) ---
-    serial: int
-    system: str
-    channel_no: int = 0
-    channel_type: str = ""
-    sample_rate: float = 0.0  # Hz  <-- time-series essential
-    samples: int | None = None
-
-    # --- acquisition (from the json header) ---
-    datetime: str | None = None
-    latitude: float = 0.0
-    longitude: float = 0.0
-    elevation: float = 0.0
-    units: str = ""
-
-    # --- calibration (from the json header) ---
-    sensor: str = ""
-    sensor_serial: int = 0
-    chopper: int = 0
-    cal_f: list = field(default_factory=list)
-    cal_a: list = field(default_factory=list)
-    cal_p: list = field(default_factory=list)
-
-    @property
-    def nyquist(self) -> float:
-        return self.sample_rate / 2
-
-    @property
-    def is_magnetic(self) -> bool:
-        return self.channel_type.startswith("H")
-
-    @property
-    def has_calibration(self) -> bool:
-        return len(self.cal_f) >= 2
-
-    @property
-    def cal(self) -> dict:
-        return {"f": self.cal_f, "a": self.cal_a, "p": self.cal_p}
-
-
 @dataclass(frozen=True)
 class Calibration:
     sensor: str
@@ -205,11 +150,12 @@ class Calibration:
     chopper: int  # 1 = on, 0 = off
     channel_id: int | None = None
     datetime: str = UNKNOWN_DATETIME
-    operator: str = ""
-    f: list[float] = field(default_factory=list)  # Hz
-    a: list[float] = field(default_factory=list)  # mV/nT
-    p: list[float] = field(default_factory=list)  # degrees
+    operator: str = ("",)
+    f: tuple[float, ...] = ()
+    a: tuple[float, ...] = ()
+    p: tuple[float, ...] = ()
 
+    @property
     def to_json(self) -> dict:
         """The ``sensor_calibration`` block of an .atss JSON header."""
         return {
@@ -221,8 +167,149 @@ class Calibration:
             "units_phase": "degrees",
             "datetime": self.datetime,
             "Operator": self.operator,
-            "f": self.f,
-            "a": self.a,
-            "p": self.p,
+            "f": list(self.f),
+            "a": list(self.a),
+            "p": list(self.p),
         }
 
+    @property
+    def has_table(self) -> bool:
+        return len(self.f) >= MIN_CAL_SIZE  # 6, as MTHotel; you had >= 2
+
+
+@dataclass(frozen=True, slots=True)
+class AtssMeta:
+    """One .atss stream: filename tags + JSON header + file size."""
+
+    # identity (filename)
+    serial: int
+    system: str
+    channel_number: int
+    channel_type: str
+    sample_rate: float  # Hz
+    # acquisition (JSON)
+    datetime: str
+    latitude: float
+    longitude: float
+    elevation: float
+    azimuth: float  # missing in your version
+    tilt: float  # missing
+    resistance: float  # missing
+    units: str
+    filter: str  # missing (the HF-HP-500Hz flag lives here)
+    calibration: Calibration  # replaces sensor, sensor_serial, chopper, cal_f/a/p
+    # derived (file size)
+    samples: int
+    id: str = ""
+    source: str = ""
+
+    @property
+    def nyquist(self) -> float:
+        return self.sample_rate / 2
+
+    @property
+    def is_magnetic(self) -> bool:
+        return self.channel_type.startswith("H")
+
+    def to_json(self) -> dict:
+        """The .json header written next to the .atss (Metronix key order)."""
+        return {
+            "datetime": self.datetime,
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "elevation": self.elevation,
+            "azimuth": self.azimuth,
+            "tilt": self.tilt,
+            "resistance": self.resistance,
+            "units": self.units,
+            "id": self.id,
+            "filter": self.filter,
+            "source": self.source,
+            "sensor_calibration": self.calibration.to_json,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ConversionResult:
+    """What ``convert_ats_file`` did with one .ats file."""
+
+    source: Path
+    atss: Path
+    json: Path
+    meta: AtssMeta
+    skipped: bool = False  # True if the output existed and overwrite was False
+
+
+@dataclass(frozen=True, slots=True)
+class DirResult:
+    """What happened to one measurement folder."""
+
+    source: Path
+    out_dir: Path
+    results: tuple[ConversionResult, ...] = ()  # converted + skipped files
+    failures: dict[Path, Exception] = field(default_factory=dict)  # file -> its error
+    error: Exception | None = None  # folder-level problem (no .ats, unreadable)
+
+    @property
+    def converted(self) -> int:
+        return sum(not r.skipped for r in self.results)
+
+    @property
+    def skipped(self) -> int:
+        return sum(r.skipped for r in self.results)
+
+    @property
+    def failed(self) -> int:
+        return len(self.failures)
+
+    @property
+    def ok(self) -> bool:
+        return self.error is None and not self.failures
+
+    def summary(self) -> str:
+        if self.error is not None:
+            return f"{self.source.name}: ERROR {self.error}"
+        return (
+            f"{self.source.name}: {self.converted} converted, {self.skipped} skipped, "
+            f"{self.failed} failed -> {self.out_dir}"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class SurveyResult:
+    """What happened to a whole survey: one DirResult per measurement folder."""
+
+    source: Path
+    out_dir: Path
+    dirs: tuple[DirResult, ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        return all(d.ok for d in self.dirs)
+
+    @property
+    def results(self) -> list[ConversionResult]:
+        """Every file result of every folder."""
+        return [r for d in self.dirs for r in d.results]
+
+    @property
+    def failures(self) -> dict[Path, Exception]:
+        """Every failed file, plus every folder that could not be converted at all."""
+        out: dict[Path, Exception] = {}
+        for d in self.dirs:
+            out.update(d.failures)
+            if d.error is not None:
+                out[d.source] = d.error
+        return out
+
+    def summary(self) -> str:
+        """Readable report, one line per folder plus totals."""
+        lines = [d.summary() for d in self.dirs]
+        lines.append(
+            f"total: {sum(d.converted for d in self.dirs)} converted, "
+            f"{sum(d.skipped for d in self.dirs)} skipped, "
+            f"{sum(d.failed for d in self.dirs)} failed files, "
+            f"{sum(d.error is not None for d in self.dirs)} failed folders "
+            f"in {len(self.dirs)} folder(s)"
+        )
+        return "\n".join(lines)

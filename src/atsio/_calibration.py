@@ -22,9 +22,9 @@ from pathlib import Path
 
 import numpy as np
 
-from ._metadata import Calibration, AtsHeader
-from ._errors import CalibrationError
-
+from ._errors import AtsFormatError, CalibrationError
+from ._headers import ATS_HEADER_BYTES, header_from_bytes
+from ._metadata import AtsHeader, Calibration, MIN_CAL_SIZE
 
 log = logging.getLogger(__name__)
 
@@ -34,7 +34,6 @@ _AMP_FACTOR = {
     "V/(nT*Hz)": lambda f: f * 1000.0,  # -> mV/nT
     "mV/nT": lambda f: 1.0,
 }  # already new format
-MIN_CAL_SIZE = 6  # MTHotel mt_base.hpp: fewer points are not interpolated
 UNKNOWN_DATETIME = "1970-01-01T00:00:00"
 _DUP_TOLERANCE = 0.01  # MTHotel: duplicates within 1 % are dropped, otherwise an error
 
@@ -175,6 +174,17 @@ def _clean_table(f, a, p, label: str) -> tuple[list[float], list[float], list[fl
     return f[keep].tolist(), a[keep].tolist(), p[keep].tolist()
 
 
+def read_ats_header(path: str | Path) -> AtsHeader:
+    """Read the header of an .ats file."""
+    path = Path(path)
+    with open(path, "rb") as fh:
+        raw = fh.read(ATS_HEADER_BYTES)
+    try:
+        return header_from_bytes(raw)
+    except AtsFormatError as e:
+        raise AtsFormatError(f"{path}: {e}") from None
+
+
 def read_xml_calibrations(xml_path: str | Path) -> list[Calibration]:
     """All calibration tables in a measdoc XML, one per (channel, chopper)."""
     xml_path = Path(xml_path)
@@ -288,3 +298,29 @@ def calibration_for_header(
     if hdr.channel_type in ("Ex", "Ey") and serial == 0:  # MTHotel convention
         serial = 1 if hdr.channel_type == "Ex" else 2
     return select_calibration(list(cals), hdr.sensor_type, serial, hdr.chopper)
+
+
+def calibration_for_ats(ats_path: str | Path, hdr: AtsHeader | None = None) -> Calibration:
+    """Everything automatic: header -> XML -> matching table.
+
+    Pass ``hdr`` if you already read the header, to avoid reading it twice.
+    Returns an empty calibration (sensor + serial, no f/a/p) when there is no XML.
+    """
+    if hdr is None:
+        hdr = read_ats_header(ats_path)
+    xml = xml_path_for(ats_path, hdr)
+    if xml is None:
+        log.warning("%s: no measdoc XML found, no calibration attached", Path(ats_path).name)
+        return Calibration(
+            normalize_sensor_name(hdr.sensor_type), hdr.sensor_serial_number, hdr.chopper
+        )
+    try:
+        cals = _cached_xml(xml.resolve())
+    except (CalibrationError, ET.ParseError) as e:
+        log.error(
+            "%s: unusable XML %s (%s), no calibration attached", Path(ats_path).name, xml.name, e
+        )
+        return Calibration(
+            normalize_sensor_name(hdr.sensor_type), hdr.sensor_serial_number, hdr.chopper
+        )
+    return calibration_for_header(cals, hdr)
